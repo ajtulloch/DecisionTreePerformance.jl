@@ -53,4 +53,3 @@ function evaluate(f::FlatForest, features::Vector{Float64})
     end
     return sum
 end
-

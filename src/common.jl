@@ -26,4 +26,3 @@ function evaluate(f::Forest, features::Vector{Float64})
     end
     return result
 end
-

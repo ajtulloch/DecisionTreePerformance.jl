@@ -23,22 +23,20 @@ type CompiledForest
             return result
         end
 
-        function code_str(f)
-            buf = IOBuffer()
-            write(buf, "extern \"C\" {\n")
-            code_gen(f, buf)
-            write(buf, "}\n")
-            return takebuf_string(buf)
-        end
-
-        function compile_to_shared_object(f)
-            generated_code = code_str(f)
+        function write_code_to_file(f::Forest)
             tempdir = mktempdir()
             cpp_file = joinpath(tempdir, "tree.cpp")
-            cpp_stream = open(cpp_file, "w")
-            write(cpp_stream, generated_code)
-            flush(cpp_stream)
+            stream = open(cpp_file, "w")
+            buf = IOBuffer()
+            write(stream, "extern \"C\" {\n")
+            code_gen(f, stream)
+            write(stream, "}\n")
+            flush(stream)
+            return cpp_file
+        end
 
+        function compile_to_shared_object(cpp_file::String)
+            tempdir = mktempdir()
             object_file = joinpath(tempdir, "tree.o")
             shared_object_file = joinpath(tempdir, "tree.so")
             run(`clang $cpp_file -c -O3 -o $object_file`)
@@ -46,7 +44,10 @@ type CompiledForest
             return shared_object_file
         end
         
-        return f |> compile_to_shared_object |> load_shared_object
+        return f |>
+        write_code_to_file |>
+        compile_to_shared_object |>
+        load_shared_object
     end
 end
 
