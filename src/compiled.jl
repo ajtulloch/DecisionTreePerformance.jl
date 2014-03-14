@@ -1,4 +1,4 @@
-const EVAL_FUNCTION_NAME = "evaluate"::String
+const EVAL_FUNCTION_NAME = "evaluate"
 
 function evaluate(f::FlatForest, features::Vector{Float64})
     result = 0.0
@@ -12,9 +12,8 @@ type CompiledForest
     handle::Ptr{Void}
     func::Ptr{Void}
 
-
     function CompiledForest(f::Forest)
-        function from_path(path::String)
+        function load_shared_object(path::String)
             h = dlopen(path, RTLD_LAZY | RTLD_LOCAL)
             @assert h != C_NULL
             p = dlsym(h, EVAL_FUNCTION_NAME)
@@ -32,18 +31,22 @@ type CompiledForest
             return takebuf_string(buf)
         end
 
-        generated_code = code_str(f)
-        tempdir = mktempdir()
-        cpp_file = joinpath(tempdir, "tree.cpp")
-        cpp_stream = open(cpp_file, "w")
-        write(cpp_stream, generated_code)
-        flush(cpp_stream)
+        function compile_to_shared_object(f)
+            generated_code = code_str(f)
+            tempdir = mktempdir()
+            cpp_file = joinpath(tempdir, "tree.cpp")
+            cpp_stream = open(cpp_file, "w")
+            write(cpp_stream, generated_code)
+            flush(cpp_stream)
 
-        object_file = joinpath(tempdir, "tree.o")
-        shared_object_file = joinpath(tempdir, "tree.so")
-        run(`clang $cpp_file -c -O3 -o $object_file`)
-        run(`clang -shared $object_file -dynamiclib -O3 -o $shared_object_file`)
-        return from_path(shared_object_file)
+            object_file = joinpath(tempdir, "tree.o")
+            shared_object_file = joinpath(tempdir, "tree.so")
+            run(`clang $cpp_file -c -O3 -o $object_file`)
+            run(`clang -shared $object_file -dynamiclib -O3 -o $shared_object_file`)
+            return shared_object_file
+        end
+        
+        return f |> compile_to_shared_object |> load_shared_object
     end
 end
 
@@ -82,4 +85,3 @@ function code_gen(i::Inner, io::IO)
     code_gen(i.right, io)
     write(io, "}\n")
 end
-
