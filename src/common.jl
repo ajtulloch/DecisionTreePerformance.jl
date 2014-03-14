@@ -10,7 +10,7 @@ immutable Inner
 end
 
 immutable Forest
-    trees::Vector{Union(Leaf, Inner)}
+    trees::Vector{Inner}
 end
 
 evaluate(l::Leaf, features::Vector{Float64}) = l.value

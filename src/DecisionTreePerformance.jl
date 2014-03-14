@@ -1,8 +1,10 @@
 module DecisionTreePerformance
 
-# package code goes here
+export Leaf, Inner, Forest, evaluate, CompiledForest, FlatForest, random_forest, random_feature_vector
+
 include("common.jl")
 include("flattened.jl")
 include("compiled.jl")
+include("random.jl")
 
-end # module
+end

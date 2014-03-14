@@ -8,23 +8,47 @@ function evaluate(f::FlatForest, features::Vector{Float64})
     return result
 end
 
-type CompiledTree
+type CompiledForest
     handle::Ptr{Void}
     func::Ptr{Void}
 
-    function CompiledTree(path::String)
-        h = dlopen(path, RTLD_LAZY | RTLD_LOCAL)
-        @assert h != C_NULL
-        p = dlsym(h, EVAL_FUNCTION_NAME)
-        @assert p != C_NULL
-        result = new(h, p)
-        finalizer(result, r -> dlclose(r.handle))
-        return result
+
+    function CompiledForest(f::Forest)
+        function from_path(path::String)
+            h = dlopen(path, RTLD_LAZY | RTLD_LOCAL)
+            @assert h != C_NULL
+            p = dlsym(h, EVAL_FUNCTION_NAME)
+            @assert p != C_NULL
+            result = new(h, p)
+            finalizer(result, r -> dlclose(r.handle))
+            return result
+        end
+
+        function code_str(f)
+            buf = IOBuffer()
+            write(buf, "extern \"C\" {\n")
+            code_gen(f, buf)
+            write(buf, "}\n")
+            return takebuf_string(buf)
+        end
+
+        generated_code = code_str(f)
+        tempdir = mktempdir()
+        cpp_file = joinpath(tempdir, "tree.cpp")
+        cpp_stream = open(cpp_file, "w")
+        write(cpp_stream, generated_code)
+        flush(cpp_stream)
+
+        object_file = joinpath(tempdir, "tree.o")
+        shared_object_file = joinpath(tempdir, "tree.so")
+        run(`clang $cpp_file -c -O3 -o $object_file`)
+        run(`clang -shared $object_file -dynamiclib -O3 -o $shared_object_file`)
+        return from_path(shared_object_file)
     end
 end
 
-function evaluate(c::CompiledTree, features::Vector{Float64})
-    return ccall(c.func, Float64, (Vector{Float64},), features)
+function evaluate(c::CompiledForest, features::Vector{Float64})
+    return ccall(c.func, Float64, (Ptr{Float64},), features)
 end
 
 function code_gen(f::Forest, io::IO)
@@ -50,33 +74,12 @@ end
 
 function code_gen(i::Inner, io::IO)
     split_value = i.splitValue
-    feature = i.feature
-    io.write("if f[$feature] < $split_value {\n")
+    # Switch to C-style array indexing
+    feature = i.feature - 1
+    write(io, "if (f[$feature] < $split_value) {\n")
     code_gen(i.left, io)
-    io.write("} else {\n")
+    write(io, "} else {\n")
     code_gen(i.right, io)
-    io.write("}\n")
+    write(io, "}\n")
 end
 
-function generate_compiled_evaluator(f::Forest)
-    function code_str(f)
-        buf = IOBuffer()
-        write(buf, "extern \"C\" {\n")
-        code_gen(f, buf)
-        write(buf, "}\n")
-        return takebuf_string(buf)
-    end
-
-    generated_code = code_str(f)
-    tempdir = mktempdir()
-    cpp_file = joinpath(tempdir, "tree.cpp")
-    cpp_stream = open(cpp_file, "w")
-    write(cpp_stream, generated_code)
-    flush(cpp_stream)
-
-    object_file = joinpath(tempdir, "tree.o")
-    shared_object_file = joinpath(tempdir, "tree.so")
-    run(`clang $cpp_file -c -O3 -o $object_file`)
-    run(`clang -shared $object_file -dynamiclib -O3 -o $shared_object_file`)
-    return CompiledTree(shared_object_file)
-end

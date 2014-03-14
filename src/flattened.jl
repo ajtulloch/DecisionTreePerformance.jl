@@ -11,7 +11,6 @@ immutable FlatTree
 
     function FlatTree(t::Union(Inner, Leaf))
         nodes = [FlatNode(0, 0, 0)]
-        println(nodes)
         function recur(l::Leaf, current_index::Int64)
             nodes[current_index] = FlatNode(LEAF_FEATURE, l.value, 0)
         end
@@ -43,6 +42,15 @@ immutable FlatForest
     trees::Vector{FlatTree}
 
     function FlatForest(f::Forest)
-        return trees([FlatTree(t) for t in f.trees])
+        return new([FlatTree(t) for t in f.trees])
     end
 end
+
+function evaluate(f::FlatForest, features::Vector{Float64})
+    sum = 0.0
+    for t in f.trees
+        sum += evaluate(t, features)
+    end
+    return sum
+end
+
