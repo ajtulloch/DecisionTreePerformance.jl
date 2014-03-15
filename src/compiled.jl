@@ -8,7 +8,7 @@ function evaluate(f::FlatForest, features::Vector{Float64})
     return result
 end
 
-type CompiledForest
+type CompiledForest <: Evaluator
     handle::Ptr{Void}
     func::Ptr{Void}
 

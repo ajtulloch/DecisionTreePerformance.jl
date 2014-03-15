@@ -1,3 +1,7 @@
+abstract Evaluator
+
+evaluation_methods = [:naive, :compiled, :flattened]
+
 immutable Leaf
     value::Float64
 end
@@ -9,7 +13,7 @@ immutable Inner
     right::Union(Inner, Leaf)
 end
 
-immutable Forest
+immutable Forest <: Evaluator
     trees::Vector{Inner}
 end
 

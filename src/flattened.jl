@@ -38,7 +38,7 @@ function evaluate(t::FlatTree, features::Vector{Float64})
     end
 end
 
-immutable FlatForest
+immutable FlatForest <: Evaluator
     trees::Vector{FlatTree}
 
     function FlatForest(f::Forest)

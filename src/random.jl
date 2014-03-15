@@ -17,6 +17,6 @@ random_forest(num_trees::Int64, num_features::Int64, depth::Int64) =
     Forest([random_tree(num_features, depth) for _ in 1:num_trees])
 
 construct_evaluators(f::Forest) =
-    [("Naive", f),
-     ("Flattened", FlatForest(f)),
-     ("Compiled", CompiledForest(f))]
+    [:naive =>  f,
+     :flattened => FlatForest(f),
+     :compiled => CompiledForest(f)]
